@@ -1,0 +1,28 @@
+schema_version = "1.0.0"
+
+id = "optic_enhancer"
+version = "1.0.0"
+name = "Optic Enhancer"
+tagline = "Look expansion pack for Apex Auto Shader — Blender 5.2 lookdev"
+maintainer = "Kyfolam"
+type = "add-on"
+
+website = "https://github.com/Kyfolam/Optic-Enhancer"
+tags = ["Material", "Render"]
+
+blender_version_min = "5.2.0"
+
+license = [
+  "SPDX:MIT",
+]
+
+copyright = [
+  "2026 Kyfolam",
+]
+
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  "/*.zip",
+]

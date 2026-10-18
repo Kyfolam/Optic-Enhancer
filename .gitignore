@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.zip
+.DS_Store
+Thumbs.db
+
+.venv/
+venv/
+.env
+.env.*
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Blender backups / autosaves
+*.blend1
+*.blend2
+*.blend@
+*.blend#
+.blender/
+*.tmp
+.mypy_cache/
