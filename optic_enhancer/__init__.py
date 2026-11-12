@@ -2,7 +2,7 @@ bl_info = {
     "name": "Optic Enhancer",
     "description": "Look expansion pack for Apex Auto Shader — creases, wear, mythic glow, portrait, 5.2 lookdev",
     "author": "Kyfolam",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (5, 2, 0),
     "location": "View3D > Sidebar > Optic Enhancer",
     "doc_url": "https://github.com/Kyfolam/Optic-Enhancer",

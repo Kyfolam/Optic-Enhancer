@@ -3,7 +3,7 @@ from __future__ import annotations
 import bpy
 from bpy.props import StringProperty
 
-from . import glow, host, lights, optics, portrait, presets, render, wear
+from . import glow, host, lights, optics, portrait, render, wear
 
 
 _HELPS = {
@@ -45,6 +45,95 @@ class OE_OT_help(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class OE_OT_auto_optimize(bpy.types.Operator):
+    bl_idname = "opticenhancer.auto_optimize"
+    bl_label = "Auto Optimize"
+    bl_description = (
+        "Read the current setup and apply a sensible look: glow and wear on, "
+        "lookdev for the active engine, then drop unused materials"
+    )
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return host.is_available()
+
+    def execute(self, context):
+        if not host.is_available():
+            self.report({"ERROR"}, "Apex Auto Shader is not installed")
+            return {"CANCELLED"}
+        scene = context.scene
+        engine = str(getattr(scene.render, "engine", "") or "")
+        cycles = engine == "CYCLES"
+        try:
+            scene.oe_glow = 100.0
+            scene.oe_wear = 35.0
+        except Exception:
+            pass
+        try:
+            glow.sync_glow(context)
+        except Exception:
+            pass
+        try:
+            wear.sync_wear(context)
+        except Exception:
+            pass
+        if cycles:
+            try:
+                scene.oe_cycles = True
+                scene.oe_tx_cache = True
+                scene.oe_eevee_rt = False
+            except Exception:
+                pass
+        else:
+            try:
+                scene.oe_eevee_rt = True
+                scene.oe_tx_cache = False
+            except Exception:
+                pass
+        notes: list[str] = []
+        targets = portrait._targets(context)
+        if targets:
+            try:
+                if not portrait.portrait_is_on(context):
+                    scene.oe_sss = portrait.SSS_DEFAULT
+                    scene.oe_hair = portrait.HAIR_DEFAULT
+                    if not cycles:
+                        scene.oe_cycles = False
+            except Exception:
+                pass
+            try:
+                if portrait.apply_portrait(targets, scene):
+                    sss = float(getattr(scene, "oe_sss", portrait.SSS_DEFAULT) or 0)
+                    hair = float(getattr(scene, "oe_hair", portrait.HAIR_DEFAULT) or 0)
+                    notes.append(f"Skin SSS {sss:.0f}%")
+                    notes.append(f"Hair wrap {hair:.0f}%")
+            except Exception:
+                pass
+        try:
+            if render.blender_52() and not render.look_is_on(scene):
+                render.OE_OT_render_look.execute(self, context)
+            if render.look_is_on(scene):
+                notes.append("Lookdev")
+        except Exception:
+            pass
+        notes.append(f"Glow {float(getattr(scene, 'oe_glow', 0) or 0):.0f}%")
+        notes.append(f"Wear {float(getattr(scene, 'oe_wear', 0) or 0):.0f}%")
+        notes.append("Cycles cache" if cycles else "Eevee RT")
+        purged = 0
+        extras = host.submodule("extras")
+        if extras is not None and hasattr(extras, "purge_orphans"):
+            try:
+                purged = int(extras.purge_orphans() or 0)
+            except Exception:
+                purged = 0
+        if purged:
+            notes.append(f"purged {purged}")
+        engine_name = "Cycles" if cycles else "Eevee"
+        self.report({"INFO"}, f"Auto Optimize ({engine_name}): " + ", ".join(notes))
+        return {"FINISHED"}
+
+
 def _scope_note(objs) -> str:
     if objs and all(getattr(o, "type", "") == "MESH" for o in objs):
         if len(objs) == 1:
@@ -62,7 +151,7 @@ def _reset_targets(context) -> list:
 
 class OE_OT_enhance(bpy.types.Operator):
     bl_idname = "opticenhancer.enhance"
-    bl_label = "Optic Enhancer"
+    bl_label = "Crease"
     bl_description = "Toggle plate crease pass. Click again to restore."
     bl_options = {"REGISTER", "UNDO"}
 
@@ -152,9 +241,17 @@ class OE_OT_reset_all(bpy.types.Operator):
         n_optics = optics.remove_optics(objs)
         optics._set_flags(objs, False)
         n_portrait = portrait.remove_portrait(objs)
+        try:
+            glow.restore_emission_strength()
+        except Exception:
+            pass
         render_msg = ""
         if render.look_is_on(context.scene):
             render_msg = render.disable_look(context)
+        try:
+            context.scene.oe_exposure = 0.0
+        except Exception:
+            pass
         total = n_optics + n_portrait
         self.report(
             {"INFO"},
@@ -183,6 +280,10 @@ def clear_all_effects() -> None:
         portrait.remove_portrait(objects)
     except Exception:
         pass
+    try:
+        glow.restore_emission_strength()
+    except Exception:
+        pass
     for obj in list(getattr(bpy.data, "objects", []) or []):
         if getattr(obj, "type", "") != "MESH":
             continue
@@ -194,6 +295,11 @@ def clear_all_effects() -> None:
         except Exception:
             pass
     scene = getattr(bpy.context, "scene", None)
+    try:
+        if scene is not None:
+            scene.oe_exposure = 0.0
+    except Exception:
+        pass
     try:
         if scene is not None and render.look_is_on(scene):
             render.disable_look(bpy.context)
@@ -207,10 +313,8 @@ def clear_all_effects() -> None:
 
 class OE_OT_uninstall(bpy.types.Operator):
     bl_idname = "opticenhancer.uninstall"
-    bl_label = "Deinstallieren"
-    bl_description = (
-        "Entfernt alle Optic-Enhancer-Effekte und schaltet das Addon aus"
-    )
+    bl_label = "Uninstall"
+    bl_description = "Remove Optic Enhancer effects and disable the add-on"
     bl_options = {"INTERNAL"}
 
     def invoke(self, context, event):
@@ -240,7 +344,7 @@ class OE_OT_uninstall(bpy.types.Operator):
             bpy.app.timers.register(_uninstall, first_interval=0.25)
         except Exception:
             _uninstall()
-        self.report({"INFO"}, "Optic Enhancer wird deinstalliert")
+        self.report({"INFO"}, "Uninstalling Optic Enhancer…")
         return {"FINISHED"}
 
 
@@ -285,7 +389,7 @@ class OE_PT_armor(bpy.types.Panel):
         on = optics.optics_is_on(context)
         layout.operator(
             OE_OT_enhance.bl_idname,
-            text="Remove Optic Enhancer" if on else "Optic Enhancer",
+            text="Remove crease" if on else "Crease",
             icon="SHADERFX",
             depress=on,
         )
@@ -294,6 +398,7 @@ class OE_PT_armor(bpy.types.Panel):
             text="Reset all OE passes",
             icon="LOOP_BACK",
         )
+        layout.operator(OE_OT_auto_optimize.bl_idname, icon="SHADERFX")
         col = layout.column(align=True)
         col.prop(scene, "oe_ao")
         col.prop(scene, "oe_ao_dist")
@@ -302,15 +407,13 @@ class OE_PT_armor(bpy.types.Panel):
         col.separator()
         col.prop(scene, "oe_wear")
         col.prop(scene, "oe_glow")
+        col.prop(scene, "oe_emission")
         col.separator()
         col.prop(scene, "oe_subdiv")
         col.prop(scene, "oe_displace")
         col.separator()
         col.prop(scene, "oe_auto")
         layout.separator()
-        row = layout.row(align=True)
-        row.operator("opticenhancer.preset_export", text="Export", icon="EXPORT")
-        row.operator("opticenhancer.preset_import", text="Import", icon="IMPORT")
 
 
 class OE_PT_portrait(bpy.types.Panel):
@@ -364,6 +467,7 @@ class OE_PT_render(bpy.types.Panel):
             box.label(text="Needs Blender 5.2 LTS", icon="ERROR")
             return
         scene = context.scene
+        layout.prop(scene, "oe_exposure")
         on = render.look_is_on(scene)
         layout.operator(
             render.OE_OT_render_look.bl_idname,
@@ -384,6 +488,7 @@ class OE_PT_render(bpy.types.Panel):
 
 classes = (
     OE_OT_help,
+    OE_OT_auto_optimize,
     OE_OT_enhance,
     OE_OT_portrait,
     OE_OT_reset_all,
@@ -396,7 +501,6 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    presets.register()
     render.register()
     optics.register_props()
     wear.register_props()
@@ -419,7 +523,6 @@ def unregister():
     _safe(glow.unregister_props)
     _safe(wear.unregister_props)
     _safe(optics.unregister_props)
-    _safe(presets.unregister)
     for cls in reversed(classes):
         try:
             bpy.utils.unregister_class(cls)

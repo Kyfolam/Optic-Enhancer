@@ -89,13 +89,14 @@ def apply_portrait(objects, scene=None) -> int:
         for mesh in material_meshes(obj):
             if _skip_lod(mesh):
                 continue
+            role = _mesh_role(mesh)
             for mat in _mesh_materials(mesh):
                 if mat is None or id(mat) in seen:
                     continue
                 seen.add(id(mat))
-                if _apply_skin(mat, cfg["sss"]):
+                if _apply_skin(mat, cfg["sss"], force=role == "skin"):
                     count += 1
-                elif _apply_hair(mat, cfg["hair"]):
+                elif role != "skin" and _apply_hair(mat, cfg["hair"], force=role == "hair"):
                     count += 1
     if scene is not None and getattr(scene, "oe_cycles", True):
         _apply_render(scene)
@@ -191,6 +192,60 @@ def _skip_common(name: str) -> bool:
     return any(part in low for part in _SKIP_PARTS)
 
 
+_HEAD_HASH = "9444831493659426347"
+_HAIR_HASH = "10849430867501589620"
+_GEAR_HASH = "8533931396491904913"
+_PART_FN = None
+_PART_FN_READY = False
+
+
+def _part_kind(name: str) -> str:
+    """head / hair / gear from a numeric Apex mesh, or ''."""
+    global _PART_FN, _PART_FN_READY
+    low = (name or "").lower()
+    if _HEAD_HASH in low:
+        return "head"
+    if _HAIR_HASH in low:
+        return "hair"
+    if _GEAR_HASH in low:
+        return "gear"
+    if not _PART_FN_READY:
+        _PART_FN_READY = True
+        try:
+            from .host import submodule
+
+            naming = submodule("naming")
+            _PART_FN = getattr(naming, "part_hash_kind", None) if naming else None
+        except Exception:
+            _PART_FN = None
+    if _PART_FN is None:
+        return ""
+    try:
+        return _PART_FN(name) or ""
+    except Exception:
+        return ""
+
+
+def _mesh_role(mesh) -> str:
+    """skin / hair when the mesh (not the material word) is a head or hair part."""
+    names = [getattr(mesh, "name", "") or ""]
+    names.extend(getattr(mat, "name", "") or "" for mat in _mesh_materials(mesh))
+    for name in names:
+        kind = _part_kind(name)
+        if kind == "head":
+            return "skin"
+        if kind == "hair":
+            return "hair"
+    for name in names:
+        if _skip_common(name):
+            continue
+        if _is_hair_name(name):
+            return "hair"
+        if _is_skin_name(name):
+            return "skin"
+    return ""
+
+
 def _is_hair_name(name: str) -> bool:
     low = (name or "").lower()
     return any(part in low for part in _HAIR_PARTS)
@@ -253,6 +308,10 @@ def _sss_socket(group):
 
 def _is_skin_material(mat, group) -> bool:
     name = getattr(mat, "name", "") or ""
+    if _part_kind(name) == "head":
+        return True
+    if _part_kind(name) in {"hair", "gear"}:
+        return False
     if _skip_common(name) or _is_hair_name(name):
         return False
     if _is_skin_name(name):
@@ -271,12 +330,19 @@ def _material_has_portrait(mat) -> bool:
     return any(n.name.startswith(P_PREFIX) for n in tree.nodes)
 
 
-def _apply_skin(mat, strength: float) -> bool:
+def _apply_skin(mat, strength: float, force: bool = False) -> bool:
     tree = getattr(mat, "node_tree", None)
     if tree is None or not getattr(mat, "use_nodes", False):
         return False
+    name = getattr(mat, "name", "") or ""
+    if _skip_common(name) or _is_hair_name(name):
+        return False
+    if _part_kind(name) in {"hair", "gear"}:
+        return False
     group = _apex_group(tree)
-    if group is None or not _is_skin_material(mat, group):
+    if group is None:
+        return False
+    if not force and not _is_skin_material(mat, group):
         return False
     sock = _sss_socket(group)
     if sock is None:
@@ -312,12 +378,14 @@ def _remove_skin(mat) -> bool:
     return True
 
 
-def _apply_hair(mat, amount: float) -> bool:
+def _apply_hair(mat, amount: float, force: bool = False) -> bool:
     tree = getattr(mat, "node_tree", None)
     if tree is None or not getattr(mat, "use_nodes", False):
         return False
     name = getattr(mat, "name", "") or ""
-    if not _is_hair_name(name):
+    if _part_kind(name) == "head":
+        return False
+    if not force and not _is_hair_name(name) and _part_kind(name) != "hair":
         return False
     if is_eye_material(name) or is_glass_family(name):
         return False

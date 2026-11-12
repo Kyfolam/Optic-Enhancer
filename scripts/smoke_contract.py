@@ -75,12 +75,12 @@ def main() -> int:
     import optic_enhancer
     from optic_enhancer import host, hook, lights, optics, panel, portrait, presets, render, wear
 
-    assert optic_enhancer.bl_info["version"] == (1, 0, 0)
+    assert optic_enhancer.bl_info["version"] == (1, 1, 0)
     assert optic_enhancer.bl_info["blender"] == (5, 2, 0)
     manifest = (PKG / "blender_manifest.toml").read_text(encoding="utf-8")
     ver = re.search(r'(?m)^version\s*=\s*"([^"]+)"', manifest)
     blender_min = re.search(r'(?m)^blender_version_min\s*=\s*"([^"]+)"', manifest)
-    assert ver and ver.group(1) == "1.0.0", manifest
+    assert ver and ver.group(1) == "1.1.0", manifest
     assert blender_min and blender_min.group(1) == "5.2.0", manifest
     assert host.MIN_HOST_VERSION == (2, 1, 0), host.MIN_HOST_VERSION
 
@@ -125,11 +125,8 @@ def main() -> int:
         "opticenhancer.generate_tx",
         "opticenhancer.copy_linking",
     }, render_ids
-    preset_ids = {cls.bl_idname for cls in presets.classes}
-    assert preset_ids == {
-        "opticenhancer.preset_export",
-        "opticenhancer.preset_import",
-    }, preset_ids
+    assert "preset_export" not in panel_src
+    assert "presets.register" not in panel_src
 
     for fn in (
         hook.install,

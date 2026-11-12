@@ -17,11 +17,11 @@ class OpticEnhancerPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        layout.label(text="Look pack for Apex Auto Shader 2.1.0+")
+        layout.label(text="Look pack for Apex Auto Shader")
         row = layout.row(align=True)
-        row.operator(OE_OT_install_zip.bl_idname, text="ZIP installieren", icon="IMPORT")
-        row.operator(OE_OT_uninstall.bl_idname, text="Deinstallieren", icon="TRASH")
-        layout.label(text="Kamera, Licht und Close-up-DOF stehen im Apex-Shader-Panel.")
+        row.operator(OE_OT_install_zip.bl_idname, text="Install ZIP", icon="IMPORT")
+        row.operator(OE_OT_uninstall.bl_idname, text="Uninstall", icon="TRASH")
+        layout.label(text="Camera, lights, and close-up DOF live in the Apex Shader panel.")
 
 
 def register():

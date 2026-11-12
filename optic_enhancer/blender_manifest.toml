@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "optic_enhancer"
-version = "1.0.0"
+version = "1.1.0"
 name = "Optic Enhancer"
 tagline = "Look expansion pack for Apex Auto Shader — Blender 5.2 lookdev"
 maintainer = "Kyfolam"

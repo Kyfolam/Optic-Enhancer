@@ -57,6 +57,7 @@ _PROPS = (
     "oe_eevee_rt",
     "oe_thin_wall",
     "oe_caustics",
+    "oe_exposure",
 )
 
 _CACHE_PATHS = (
@@ -700,6 +701,27 @@ classes = (
 )
 
 
+def apply_view_exposure(scene) -> None:
+    """View exposure in stops. 0 leaves the view transform alone."""
+    if scene is None:
+        return
+    view = getattr(scene, "view_settings", None)
+    if view is None or not hasattr(view, "exposure"):
+        return
+    try:
+        stops = float(getattr(scene, "oe_exposure", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        stops = 0.0
+    try:
+        view.exposure = max(-8.0, min(8.0, stops))
+    except Exception:
+        pass
+
+
+def _exposure_update(self, _context):
+    apply_view_exposure(self)
+
+
 def register_props():
     bpy.types.Scene.oe_tx_cache = BoolProperty(
         name="Texture cache",
@@ -740,6 +762,18 @@ def register_props():
         description="Reflective and refractive caustics while lookdev is on. Off is cleaner on armor.",
         default=False,
         update=_look_update,
+    )
+    bpy.types.Scene.oe_exposure = FloatProperty(
+        name="Exposure",
+        description="View exposure in stops. 0 = unchanged. Does not touch materials",
+        default=0.0,
+        min=-4.0,
+        max=4.0,
+        soft_min=-2.0,
+        soft_max=2.0,
+        step=10,
+        precision=2,
+        update=_exposure_update,
     )
 
 

@@ -14,3 +14,4 @@ jobs:
           python-version: "3.11"
       - name: Host contract
         run: python scripts/smoke_contract.py
+
