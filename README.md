@@ -2,24 +2,22 @@
 
 Blender **5.2** look pack for [Apex Auto Shader](https://github.com/Kyfolam/Apex-Auto-Shader). Release **1.1.0**.
 
-It does not shade, import, or search skins. Install Apex Auto Shader first. **2.1.0** or newer is enough. **2.2.0** is the current one.
+This tool is just for optic enhancement, additional tool for the Apex Auto Shader.
+Install Apex Auto Shader first. **2.1.0** or newer, **2.2.0** is the current one.
 
 ---
 
 ## Install
 
-1. Install and enable Apex Auto Shader
-2. Download the latest **Release** zip of this addon
-3. **Edit → Preferences → Get Extensions → Install from Disk**
-4. Enable **Optic Enhancer**
-
-The zip root must be the folder `optic_enhancer/`. Do not install a GitHub source zip. Blender rejects a root named `Optic-Enhancer-main`.
+1. Download the latest **Release** zip of this addon
+2. **Edit → Preferences → Get Extensions → Install from Disk**
+3. Enable **Optic Enhancer**
 
 ---
 
 ## How to use
 
-Shade the model with Auto Shader first. Then use the sidebar tab **Optic Enhancer**. Press a button again to take that pass off.
+Just use the sidebar tab **Optic Enhancer**. Press a button again to take that pass off.
 
 ### Optic Enhancer
 
